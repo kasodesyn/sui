@@ -41,7 +41,10 @@ use fastcrypto::{
 use futures::{stream::FuturesUnordered, StreamExt};
 use mysten_metrics::spawn_monitored_task;
 use mysten_network::{multiaddr::Protocol, Multiaddr};
-use network::epoch_filter::{AllowedEpoch, EPOCH_HEADER_KEY};
+use network::{
+    client::NetworkClient,
+    epoch_filter::{AllowedEpoch, EPOCH_HEADER_KEY},
+};
 use network::{failpoints::FailpointsMakeCallbackHandler, metrics::MetricsMakeCallbackHandler};
 use prometheus::Registry;
 use std::collections::HashMap;
@@ -105,6 +108,7 @@ impl Primary {
         committee: Committee,
         worker_cache: WorkerCache,
         parameters: Parameters,
+        client: NetworkClient,
         header_store: HeaderStore,
         certificate_store: CertificateStore,
         proposer_store: ProposerStore,
@@ -125,10 +129,11 @@ impl Primary {
         parameters.tracing();
 
         // Some info statements
+        let own_peer_id = PeerId(network_signer.public().0.to_bytes());
         info!(
             "Boot primary node with peer id {} and public key {}",
-            PeerId(network_signer.public().0.to_bytes()),
-            authority.protocol_key().encode_base64()
+            own_peer_id,
+            authority.protocol_key().encode_base64(),
         );
 
         // Initialize the metrics
@@ -191,6 +196,7 @@ impl Primary {
             committee.clone(),
             worker_cache.clone(),
             parameters.gc_depth,
+            client.clone(),
             certificate_store.clone(),
             payload_store.clone(),
             tx_certificate_fetcher,
@@ -266,11 +272,15 @@ impl Primary {
             );
         }
 
-        let worker_service = WorkerToPrimaryServer::new(WorkerReceiverHandler {
+        let worker_receiver_handler = WorkerReceiverHandler {
             tx_our_digests,
             payload_store: payload_store.clone(),
             our_workers,
-        });
+        };
+
+        client.set_worker_to_primary_local_handler(Arc::new(worker_receiver_handler.clone()));
+
+        let worker_service = WorkerToPrimaryServer::new(worker_receiver_handler);
 
         let addr = address.to_anemo_address().unwrap();
 
@@ -524,14 +534,11 @@ impl Primary {
         if dag.is_some() {
             let (tx_certificate_synchronizer, mut rx_certificate_synchronizer) =
                 mpsc::channel(CHANNEL_CAPACITY);
-            let sync_network = network.clone();
             spawn_monitored_task!(async move {
                 while let Some(cert) = rx_certificate_synchronizer.recv().await {
                     // Ok to ignore error including Suspended,
                     // because fetching would be kicked off.
-                    let _ = synchronizer
-                        .try_accept_certificate(cert, &sync_network)
-                        .await;
+                    let _ = synchronizer.try_accept_certificate(cert).await;
                 }
                 // BlockSynchronizer has shut down.
             });
@@ -687,14 +694,6 @@ impl PrimaryReceiverHandler {
         &self,
         request: anemo::Request<RequestVoteRequest>,
     ) -> DagResult<RequestVoteResponse> {
-        let network = request
-            .extensions()
-            .get::<anemo::NetworkRef>()
-            .and_then(anemo::NetworkRef::upgrade)
-            .ok_or_else(|| {
-                DagError::NetworkError("Unable to access network to send child RPCs".to_owned())
-            })?;
-
         let header = &request.body().header;
         let committee = self.committee.clone();
         header.validate(&committee, &self.worker_cache)?;
@@ -743,16 +742,12 @@ impl PrimaryReceiverHandler {
         self.metrics
             .certificates_in_votes
             .inc_by(request.body().parents.len() as u64);
-        let wait_network = network.clone();
         let mut wait_notifications: FuturesUnordered<_> = request
             .body()
             .parents
             .clone()
             .into_iter()
-            .map(|cert| {
-                self.synchronizer
-                    .wait_to_accept_certificate(cert, &wait_network)
-            })
+            .map(|cert| self.synchronizer.wait_to_accept_certificate(cert))
             .collect();
         loop {
             tokio::select! {
@@ -823,7 +818,7 @@ impl PrimaryReceiverHandler {
 
         // Synchronize all batches referenced in the header.
         self.synchronizer
-            .sync_header_batches(header, network, /* max_age */ 0)
+            .sync_header_batches(header, /* max_age */ 0)
             .await?;
 
         // Check that the time of the header is smaller than the current time. If not but the difference is
@@ -923,21 +918,8 @@ impl PrimaryToPrimary for PrimaryReceiverHandler {
         &self,
         request: anemo::Request<SendCertificateRequest>,
     ) -> Result<anemo::Response<SendCertificateResponse>, anemo::rpc::Status> {
-        let network = request
-            .extensions()
-            .get::<anemo::NetworkRef>()
-            .and_then(anemo::NetworkRef::upgrade)
-            .ok_or_else(|| {
-                anemo::rpc::Status::internal(
-                    "Unable to access network to send child RPCs".to_owned(),
-                )
-            })?;
         let certificate = request.into_body().certificate;
-        match self
-            .synchronizer
-            .try_accept_certificate(certificate, &network)
-            .await
-        {
+        match self.synchronizer.try_accept_certificate(certificate).await {
             Ok(()) => Ok(anemo::Response::new(SendCertificateResponse {
                 accepted: true,
             })),

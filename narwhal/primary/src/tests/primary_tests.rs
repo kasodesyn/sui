@@ -18,6 +18,7 @@ use fastcrypto::{
     traits::KeyPair,
 };
 use itertools::Itertools;
+use network::client::NetworkClient;
 use prometheus::Registry;
 use std::{
     borrow::Borrow,
@@ -62,6 +63,7 @@ async fn get_network_peers_from_admin_server() {
 
     // Make the data store.
     let store = NodeStorage::reopen(temp_dir(), None);
+    let client_1 = NetworkClient::new(authority_1.network_keypair().copy());
 
     let (tx_new_certificates, rx_new_certificates) = types::metered_channel::channel(
         CHANNEL_CAPACITY,
@@ -93,6 +95,7 @@ async fn get_network_peers_from_admin_server() {
         committee.clone(),
         worker_cache.clone(),
         primary_1_parameters.clone(),
+        client_1.clone(),
         store.header_store.clone(),
         store.certificate_store.clone(),
         store.proposer_store.clone(),
@@ -140,6 +143,7 @@ async fn get_network_peers_from_admin_server() {
         worker_cache.clone(),
         worker_1_parameters.clone(),
         TrivialTransactionValidator::default(),
+        client_1,
         store.batch_store,
         metrics_1,
         &mut tx_shutdown_worker,
@@ -179,6 +183,7 @@ async fn get_network_peers_from_admin_server() {
 
     let authority_2 = fixture.authorities().nth(1).unwrap();
     let signer_2 = authority_2.keypair().copy();
+    let client_2 = NetworkClient::new(authority_2.network_keypair().copy());
 
     let primary_2_parameters = Parameters {
         batch_size: 200, // Two transactions.
@@ -215,6 +220,7 @@ async fn get_network_peers_from_admin_server() {
         committee.clone(),
         worker_cache.clone(),
         primary_2_parameters.clone(),
+        client_2.clone(),
         store.header_store.clone(),
         store.certificate_store.clone(),
         store.proposer_store.clone(),
@@ -304,6 +310,7 @@ async fn test_request_vote_send_missing_parents() {
     let signature_service = SignatureService::new(target.keypair().copy());
     let metrics = Arc::new(PrimaryMetrics::new(&Registry::new()));
     let network = test_utils::test_network(target.network_keypair(), target.address());
+    let client = NetworkClient::new(target.network_keypair().copy());
 
     let (header_store, certificate_store, payload_store) = create_db_stores();
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
@@ -319,6 +326,7 @@ async fn test_request_vote_send_missing_parents() {
         fixture.committee(),
         worker_cache.clone(),
         /* gc_depth */ 50,
+        client,
         certificate_store.clone(),
         payload_store.clone(),
         tx_certificate_fetcher,
@@ -453,6 +461,7 @@ async fn test_request_vote_accept_missing_parents() {
     let signature_service = SignatureService::new(target.keypair().copy());
     let metrics = Arc::new(PrimaryMetrics::new(&Registry::new()));
     let network = test_utils::test_network(target.network_keypair(), target.address());
+    let client = NetworkClient::new(target.network_keypair().copy());
 
     let (header_store, certificate_store, payload_store) = create_db_stores();
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
@@ -468,6 +477,7 @@ async fn test_request_vote_accept_missing_parents() {
         fixture.committee(),
         worker_cache.clone(),
         /* gc_depth */ 50,
+        client,
         certificate_store.clone(),
         payload_store.clone(),
         tx_certificate_fetcher,
@@ -594,6 +604,7 @@ async fn test_request_vote_missing_batches() {
     let signature_service = SignatureService::new(primary.keypair().copy());
     let metrics = Arc::new(PrimaryMetrics::new(&Registry::new()));
     let network = test_utils::test_network(primary.network_keypair(), primary.address());
+    let client = NetworkClient::new(primary.network_keypair().copy());
 
     let (header_store, certificate_store, payload_store) = create_db_stores();
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
@@ -609,6 +620,7 @@ async fn test_request_vote_missing_batches() {
         fixture.committee(),
         worker_cache.clone(),
         /* gc_depth */ 50,
+        client,
         certificate_store.clone(),
         payload_store.clone(),
         tx_certificate_fetcher,
@@ -723,6 +735,7 @@ async fn test_request_vote_already_voted() {
     let signature_service = SignatureService::new(primary.keypair().copy());
     let metrics = Arc::new(PrimaryMetrics::new(&Registry::new()));
     let network = test_utils::test_network(primary.network_keypair(), primary.address());
+    let client = NetworkClient::new(primary.network_keypair().copy());
 
     let (header_store, certificate_store, payload_store) = create_db_stores();
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
@@ -738,6 +751,7 @@ async fn test_request_vote_already_voted() {
         fixture.committee(),
         worker_cache.clone(),
         /* gc_depth */ 50,
+        client,
         certificate_store.clone(),
         payload_store.clone(),
         tx_certificate_fetcher,
@@ -887,6 +901,7 @@ async fn test_fetch_certificates_handler() {
     let primary = fixture.authorities().next().unwrap();
     let signature_service = SignatureService::new(primary.keypair().copy());
     let metrics = Arc::new(PrimaryMetrics::new(&Registry::new()));
+    let client = NetworkClient::new(primary.network_keypair().copy());
 
     let (header_store, certificate_store, payload_store) = create_db_stores();
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
@@ -902,6 +917,7 @@ async fn test_fetch_certificates_handler() {
         fixture.committee(),
         worker_cache.clone(),
         /* gc_depth */ 50,
+        client,
         certificate_store.clone(),
         payload_store.clone(),
         tx_certificate_fetcher,
@@ -1055,6 +1071,7 @@ async fn test_process_payload_availability_success() {
     let primary = fixture.authorities().next().unwrap();
     let signature_service = SignatureService::new(primary.keypair().copy());
     let metrics = Arc::new(PrimaryMetrics::new(&Registry::new()));
+    let client = NetworkClient::new(primary.network_keypair().copy());
 
     let (header_store, certificate_store, payload_store) = create_db_stores();
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
@@ -1070,6 +1087,7 @@ async fn test_process_payload_availability_success() {
         fixture.committee(),
         worker_cache.clone(),
         /* gc_depth */ 50,
+        client,
         certificate_store.clone(),
         payload_store.clone(),
         tx_certificate_fetcher,
@@ -1209,6 +1227,7 @@ async fn test_process_payload_availability_when_failures() {
     let primary = fixture.authorities().next().unwrap();
     let signature_service = SignatureService::new(primary.keypair().copy());
     let metrics = Arc::new(PrimaryMetrics::new(&Registry::new()));
+    let client = NetworkClient::new(primary.network_keypair().copy());
 
     let (header_store, _, _) = create_db_stores();
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
@@ -1224,6 +1243,7 @@ async fn test_process_payload_availability_when_failures() {
         fixture.committee(),
         worker_cache.clone(),
         /* gc_depth */ 50,
+        client,
         certificate_store.clone(),
         payload_store.clone(),
         tx_certificate_fetcher,
@@ -1310,6 +1330,7 @@ async fn test_request_vote_created_at_in_future() {
     let signature_service = SignatureService::new(primary.keypair().copy());
     let metrics = Arc::new(PrimaryMetrics::new(&Registry::new()));
     let network = test_utils::test_network(primary.network_keypair(), primary.address());
+    let client = NetworkClient::new(primary.network_keypair().copy());
 
     let (header_store, certificate_store, payload_store) = create_db_stores();
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
@@ -1325,6 +1346,7 @@ async fn test_request_vote_created_at_in_future() {
         fixture.committee(),
         worker_cache.clone(),
         /* gc_depth */ 50,
+        client,
         certificate_store.clone(),
         payload_store.clone(),
         tx_certificate_fetcher,

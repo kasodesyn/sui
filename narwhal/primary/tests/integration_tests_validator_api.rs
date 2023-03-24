@@ -8,6 +8,7 @@ use fastcrypto::{hash::Hash, traits::KeyPair as _};
 use indexmap::IndexMap;
 use narwhal_primary as primary;
 use narwhal_primary::NUM_SHUTDOWN_RECEIVERS;
+use network::client::NetworkClient;
 use primary::{NetworkModel, Primary, CHANNEL_CAPACITY};
 use prometheus::Registry;
 use std::{
@@ -43,6 +44,7 @@ async fn test_get_collections() {
 
     let author = fixture.authorities().last().unwrap();
     let signer = author.keypair().copy();
+    let client = NetworkClient::new(author.network_keypair().copy());
 
     let worker_id = 0;
     let worker_keypair = author.worker(worker_id).keypair().copy();
@@ -109,6 +111,7 @@ async fn test_get_collections() {
         committee.clone(),
         worker_cache.clone(),
         parameters.clone(),
+        client.clone(),
         store.header_store.clone(),
         store.certificate_store.clone(),
         store.proposer_store.clone(),
@@ -147,6 +150,7 @@ async fn test_get_collections() {
         worker_cache.clone(),
         parameters.clone(),
         TrivialTransactionValidator::default(),
+        client,
         store.batch_store.clone(),
         metrics,
         &mut tx_shutdown_worker,
@@ -240,6 +244,7 @@ async fn test_remove_collections() {
 
     let author = fixture.authorities().last().unwrap();
     let signer = author.keypair().copy();
+    let network_client = NetworkClient::new(author.network_keypair().copy());
 
     let worker_id = 0;
     let worker_keypair = author.worker(worker_id).keypair().copy();
@@ -315,6 +320,7 @@ async fn test_remove_collections() {
         committee.clone(),
         worker_cache.clone(),
         parameters.clone(),
+        network_client.clone(),
         store.header_store.clone(),
         store.certificate_store.clone(),
         store.proposer_store.clone(),
@@ -375,6 +381,7 @@ async fn test_remove_collections() {
         worker_cache.clone(),
         parameters.clone(),
         TrivialTransactionValidator::default(),
+        network_client,
         store.batch_store.clone(),
         metrics,
         &mut tx_shutdown_worker,
@@ -477,6 +484,9 @@ async fn test_read_causal_signed_certificates() {
     let primary_store_1 = NodeStorage::reopen(temp_dir(), None);
     let primary_store_2: NodeStorage = NodeStorage::reopen(temp_dir(), None);
 
+    let client_1 = NetworkClient::new(authority_1.network_keypair().copy());
+    let client_2 = NetworkClient::new(authority_2.network_keypair().copy());
+
     let mut collection_digests: Vec<CertificateDigest> = Vec::new();
 
     // Make the Dag
@@ -564,6 +574,7 @@ async fn test_read_causal_signed_certificates() {
         committee.clone(),
         worker_cache.clone(),
         primary_1_parameters.clone(),
+        client_1,
         primary_store_1.header_store.clone(),
         primary_store_1.certificate_store.clone(),
         primary_store_1.proposer_store.clone(),
@@ -604,6 +615,7 @@ async fn test_read_causal_signed_certificates() {
         committee.clone(),
         worker_cache.clone(),
         primary_2_parameters.clone(),
+        client_2,
         primary_store_2.header_store,
         primary_store_2.certificate_store,
         primary_store_2.proposer_store,
@@ -705,6 +717,9 @@ async fn test_read_causal_unsigned_certificates() {
     let primary_store_1 = NodeStorage::reopen(temp_dir(), None);
     let primary_store_2: NodeStorage = NodeStorage::reopen(temp_dir(), None);
 
+    let client_1 = NetworkClient::new(authority_1.network_keypair().copy());
+    let client_2 = NetworkClient::new(authority_2.network_keypair().copy());
+
     let mut collection_digests: Vec<CertificateDigest> = Vec::new();
 
     // Make the Dag
@@ -789,6 +804,7 @@ async fn test_read_causal_unsigned_certificates() {
         committee.clone(),
         worker_cache.clone(),
         primary_1_parameters.clone(),
+        client_1,
         primary_store_1.header_store.clone(),
         primary_store_1.certificate_store.clone(),
         primary_store_1.proposer_store.clone(),
@@ -823,6 +839,7 @@ async fn test_read_causal_unsigned_certificates() {
         committee.clone(),
         worker_cache.clone(),
         primary_2_parameters.clone(),
+        client_2,
         primary_store_2.header_store,
         primary_store_2.certificate_store,
         primary_store_2.proposer_store,
@@ -943,6 +960,9 @@ async fn test_get_collections_with_missing_certificates() {
     let store_primary_1 = NodeStorage::reopen(temp_dir(), None);
     let store_primary_2 = NodeStorage::reopen(temp_dir(), None);
 
+    let client_1 = NetworkClient::new(authority_1.network_keypair().copy());
+    let client_2 = NetworkClient::new(authority_2.network_keypair().copy());
+
     // The certificate_1 will be stored in primary 1
     let (certificate_1, batch_1) = fixture_certificate(
         authority_1,
@@ -996,6 +1016,7 @@ async fn test_get_collections_with_missing_certificates() {
         committee.clone(),
         worker_cache.clone(),
         parameters_1.clone(),
+        client_1.clone(),
         store_primary_1.header_store,
         store_primary_1.certificate_store,
         store_primary_1.proposer_store,
@@ -1034,6 +1055,7 @@ async fn test_get_collections_with_missing_certificates() {
         worker_cache.clone(),
         parameters_1.clone(),
         TrivialTransactionValidator::default(),
+        client_1,
         store_primary_1.batch_store,
         metrics_1,
         &mut tx_shutdown_worker_1,
@@ -1067,6 +1089,7 @@ async fn test_get_collections_with_missing_certificates() {
         committee.clone(),
         worker_cache.clone(),
         parameters_2.clone(),
+        client_2.clone(),
         store_primary_2.header_store,
         store_primary_2.certificate_store,
         store_primary_2.proposer_store,
@@ -1097,6 +1120,7 @@ async fn test_get_collections_with_missing_certificates() {
         worker_cache.clone(),
         parameters_2.clone(),
         TrivialTransactionValidator::default(),
+        client_2,
         store_primary_2.batch_store,
         metrics_2,
         &mut tx_shutdown_worker_2,

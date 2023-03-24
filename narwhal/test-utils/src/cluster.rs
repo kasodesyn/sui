@@ -8,6 +8,7 @@ use fastcrypto::traits::KeyPair as _;
 use itertools::Itertools;
 use mysten_metrics::RegistryService;
 use mysten_network::multiaddr::Multiaddr;
+use network::client::NetworkClient;
 use node::primary_node::PrimaryNode;
 use node::worker_node::WorkerNode;
 use node::{execution_state::SimpleExecutionState, metrics::worker_metrics_registry};
@@ -357,6 +358,7 @@ impl PrimaryNodeDetails {
 
         // Primary node
         let primary_store: NodeStorage = NodeStorage::reopen(store_path.clone(), None);
+        let network_client = NetworkClient::new(self.network_key_pair.copy());
 
         self.node
             .start(
@@ -364,6 +366,7 @@ impl PrimaryNodeDetails {
                 self.network_key_pair.copy(),
                 self.committee.clone(),
                 self.worker_cache.clone(),
+                network_client,
                 &primary_store,
                 Arc::new(SimpleExecutionState::new(tx_transaction_confirmation)),
             )
@@ -461,12 +464,16 @@ impl WorkerNodeDetails {
         };
 
         let worker_store = NodeStorage::reopen(store_path.clone(), None);
+
+        let network_client = NetworkClient::new(keypair.copy());
+
         self.node
             .start(
                 self.primary_key.clone(),
                 keypair,
                 self.committee.clone(),
                 self.worker_cache.clone(),
+                network_client,
                 &worker_store,
                 TrivialTransactionValidator::default(),
                 None,

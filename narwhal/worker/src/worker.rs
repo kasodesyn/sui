@@ -22,6 +22,7 @@ use config::{Authority, AuthorityIdentifier, Committee, Parameters, WorkerCache,
 use crypto::{traits::KeyPair as _, NetworkKeyPair, NetworkPublicKey};
 use mysten_metrics::spawn_logged_monitored_task;
 use mysten_network::{multiaddr::Protocol, Multiaddr};
+use network::client::NetworkClient;
 use network::epoch_filter::{AllowedEpoch, EPOCH_HEADER_KEY};
 use network::failpoints::FailpointsMakeCallbackHandler;
 use network::metrics::MetricsMakeCallbackHandler;
@@ -75,15 +76,13 @@ impl Worker {
         worker_cache: WorkerCache,
         parameters: Parameters,
         validator: impl TransactionValidator,
+        client: NetworkClient,
         store: DBMap<BatchDigest, Batch>,
         metrics: Metrics,
         tx_shutdown: &mut PreSubscribedBroadcastSender,
     ) -> Vec<JoinHandle<()>> {
-        info!(
-            "Boot worker node with id {} peer id {}",
-            id,
-            PeerId(keypair.public().0.to_bytes())
-        );
+        let worker_peer_id = PeerId(keypair.public().0.to_bytes());
+        info!("Boot worker node with id {} peer id {}", id, worker_peer_id,);
 
         // Define a worker instance.
         let worker = Self {
@@ -116,6 +115,29 @@ impl Worker {
         );
 
         let mut shutdown_receivers = tx_shutdown.subscribe_n(NUM_SHUTDOWN_RECEIVERS);
+
+        client.set_primary_to_worker_local_handler(
+            worker_peer_id,
+            Arc::new(PrimaryReceiverHandler {
+                authority_id: worker.authority.id(),
+                id: worker.id,
+                committee: worker.committee.clone(),
+                worker_cache: worker.worker_cache.clone(),
+                store: worker.store.clone(),
+                request_batch_timeout: worker.parameters.sync_retry_delay,
+                request_batch_retry_nodes: worker.parameters.sync_retry_nodes,
+                validator: validator.clone(),
+            }),
+        );
+        client.set_worker_to_worker_local_handler(
+            worker_peer_id,
+            Arc::new(WorkerReceiverHandler {
+                id: worker.id,
+                tx_others_batch: tx_others_batch.clone(),
+                store: worker.store.clone(),
+                validator: validator.clone(),
+            }),
+        );
 
         let mut worker_service = WorkerToWorkerServer::new(WorkerReceiverHandler {
             id: worker.id,
