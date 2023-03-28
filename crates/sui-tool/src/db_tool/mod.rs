@@ -3,8 +3,11 @@
 
 use self::db_dump::{dump_table, duplicate_objects_summary, list_tables, table_summary, StoreName};
 use clap::Parser;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use sui_core::authority::authority_store_tables::AuthorityPerpetualTables;
+use sui_core::checkpoints::CheckpointStore;
 use sui_types::base_types::EpochId;
+use typed_store::rocks::MetricConf;
 
 pub mod db_dump;
 
@@ -15,6 +18,7 @@ pub enum DbToolCommand {
     Dump(Dump),
     TableSummary(Dump),
     DuplicatesSummary,
+    ResetDB,
 }
 
 #[derive(Parser)]
@@ -56,6 +60,7 @@ pub fn execute_db_tool_command(db_path: PathBuf, cmd: DbToolCommand) -> anyhow::
             print_db_table_summary(d.store_name, d.epoch, db_path, &d.table_name)
         }
         DbToolCommand::DuplicatesSummary => print_db_duplicates_summary(db_path),
+        DbToolCommand::ResetDB => reset_db_to_genesis(&db_path),
     }
 }
 
@@ -71,6 +76,15 @@ pub fn print_db_duplicates_summary(db_path: PathBuf) -> anyhow::Result<()> {
         "Total objects = {}, duplicated objects = {}, total bytes = {}, duplicated bytes = {}",
         total_count, duplicate_count, total_bytes, duplicated_bytes
     );
+    Ok(())
+}
+
+pub fn reset_db_to_genesis(path: &Path) -> anyhow::Result<()> {
+    let perpetual_db = AuthorityPerpetualTables::open_tables_read_write(path.join("store").join("perpetual").to_path_buf(), MetricConf::default(), None, None);
+    perpetual_db.reset_db_for_execution_since_genesis()?;
+
+    let checkpoint_db = CheckpointStore::open_tables_read_write(path.join("checkpoints").to_path_buf(), MetricConf::default(), None, None);
+    checkpoint_db.reset_db_for_execution_since_genesis()?;
     Ok(())
 }
 
