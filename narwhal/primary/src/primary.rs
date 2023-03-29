@@ -73,8 +73,8 @@ use types::{
     FetchCertificatesResponse, GetCertificatesRequest, GetCertificatesResponse, HeaderAPI,
     PayloadAvailabilityRequest, PayloadAvailabilityResponse, PreSubscribedBroadcastSender,
     PrimaryToPrimary, PrimaryToPrimaryServer, RequestVoteRequest, RequestVoteResponse, Round,
-    SendCertificateRequest, SendCertificateResponse, Vote, VoteInfoAPI, WorkerInfoResponse,
-    WorkerOthersBatchMessage, WorkerOurBatchMessage, WorkerToPrimary, WorkerToPrimaryServer,
+    SendCertificateRequest, SendCertificateResponse, Vote, VoteInfoAPI, WorkerOthersBatchMessage,
+    WorkerOurBatchMessage, WorkerToPrimary, WorkerToPrimaryServer,
 };
 
 #[cfg(any(test))]
@@ -275,7 +275,7 @@ impl Primary {
         let worker_receiver_handler = WorkerReceiverHandler {
             tx_our_digests,
             payload_store: payload_store.clone(),
-            our_workers,
+            _our_workers: our_workers,
         };
 
         client.set_worker_to_primary_local_handler(Arc::new(worker_receiver_handler.clone()));
@@ -1125,7 +1125,7 @@ impl PrimaryToPrimary for PrimaryReceiverHandler {
 struct WorkerReceiverHandler {
     tx_our_digests: Sender<OurDigestMessage>,
     payload_store: PayloadStore,
-    our_workers: BTreeMap<WorkerId, WorkerInfo>,
+    _our_workers: BTreeMap<WorkerId, WorkerInfo>,
 }
 
 #[async_trait]
@@ -1173,14 +1173,5 @@ impl WorkerToPrimary for WorkerReceiverHandler {
             .write(&message.digest, &message.worker_id)
             .map_err(|e| anemo::rpc::Status::internal(e.to_string()))?;
         Ok(anemo::Response::new(()))
-    }
-
-    async fn worker_info(
-        &self,
-        _request: anemo::Request<()>,
-    ) -> Result<anemo::Response<WorkerInfoResponse>, anemo::rpc::Status> {
-        Ok(anemo::Response::new(WorkerInfoResponse {
-            workers: self.our_workers.clone(),
-        }))
     }
 }
