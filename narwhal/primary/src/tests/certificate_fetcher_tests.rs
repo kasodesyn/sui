@@ -142,7 +142,7 @@ async fn fetch_certificates_basic() {
     let fixture = CommitteeFixture::builder().randomize_ports(true).build();
     let worker_cache = fixture.worker_cache();
     let primary = fixture.authorities().next().unwrap();
-    let client = NetworkClient::new(primary.network_keypair().copy());
+    let client = NetworkClient::new_from_keypair(&primary.network_keypair());
     let id = primary.id();
     let fake_primary = fixture.authorities().nth(1).unwrap();
     let metrics = Arc::new(PrimaryMetrics::new(&Registry::new()));

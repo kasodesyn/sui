@@ -44,7 +44,7 @@ async fn test_get_collections() {
 
     let author = fixture.authorities().last().unwrap();
     let signer = author.keypair().copy();
-    let client = NetworkClient::new(author.network_keypair().copy());
+    let client = NetworkClient::new_from_keypair(&author.network_keypair());
 
     let worker_id = 0;
     let worker_keypair = author.worker(worker_id).keypair().copy();
@@ -244,7 +244,7 @@ async fn test_remove_collections() {
 
     let author = fixture.authorities().last().unwrap();
     let signer = author.keypair().copy();
-    let network_client = NetworkClient::new(author.network_keypair().copy());
+    let network_client = NetworkClient::new_from_keypair(&author.network_keypair());
 
     let worker_id = 0;
     let worker_keypair = author.worker(worker_id).keypair().copy();
@@ -484,8 +484,8 @@ async fn test_read_causal_signed_certificates() {
     let primary_store_1 = NodeStorage::reopen(temp_dir(), None);
     let primary_store_2: NodeStorage = NodeStorage::reopen(temp_dir(), None);
 
-    let client_1 = NetworkClient::new(authority_1.network_keypair().copy());
-    let client_2 = NetworkClient::new(authority_2.network_keypair().copy());
+    let client_1 = NetworkClient::new_from_keypair(&authority_1.network_keypair());
+    let client_2 = NetworkClient::new_from_keypair(&authority_2.network_keypair());
 
     let mut collection_digests: Vec<CertificateDigest> = Vec::new();
 
@@ -717,8 +717,8 @@ async fn test_read_causal_unsigned_certificates() {
     let primary_store_1 = NodeStorage::reopen(temp_dir(), None);
     let primary_store_2: NodeStorage = NodeStorage::reopen(temp_dir(), None);
 
-    let client_1 = NetworkClient::new(authority_1.network_keypair().copy());
-    let client_2 = NetworkClient::new(authority_2.network_keypair().copy());
+    let client_1 = NetworkClient::new_from_keypair(&authority_1.network_keypair());
+    let client_2 = NetworkClient::new_from_keypair(&authority_2.network_keypair());
 
     let mut collection_digests: Vec<CertificateDigest> = Vec::new();
 
@@ -960,8 +960,8 @@ async fn test_get_collections_with_missing_certificates() {
     let store_primary_1 = NodeStorage::reopen(temp_dir(), None);
     let store_primary_2 = NodeStorage::reopen(temp_dir(), None);
 
-    let client_1 = NetworkClient::new(authority_1.network_keypair().copy());
-    let client_2 = NetworkClient::new(authority_2.network_keypair().copy());
+    let client_1 = NetworkClient::new_from_keypair(&authority_1.network_keypair());
+    let client_2 = NetworkClient::new_from_keypair(&authority_2.network_keypair());
 
     // The certificate_1 will be stored in primary 1
     let (certificate_1, batch_1) = fixture_certificate(

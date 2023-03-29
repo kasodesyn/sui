@@ -142,6 +142,9 @@ impl<T> From<tokio::sync::mpsc::error::TrySendError<T>> for DagError {
 
 #[derive(Clone, Debug, Error)]
 pub enum LocalClientError {
+    #[error("Primary {0} has not started yet.")]
+    PrimaryNotStarted(PeerId),
+
     #[error("Worker {0} has not started yet.")]
     WorkerNotStarted(PeerId),
 

@@ -25,8 +25,7 @@ use test_utils::{batch, temp_dir, test_network, transaction, CommitteeFixture};
 use tokio::sync::watch;
 use types::{
     BatchAPI, MockWorkerToPrimary, MockWorkerToWorker, PreSubscribedBroadcastSender,
-    TransactionProto, TransactionsClient, WorkerBatchMessage, WorkerToPrimaryServer,
-    WorkerToWorkerClient,
+    TransactionProto, TransactionsClient, WorkerBatchMessage, WorkerToWorkerClient,
 };
 
 // A test validator that rejects every transaction / batch
@@ -54,7 +53,7 @@ async fn reject_invalid_clients_transactions() {
     let my_primary = fixture.authorities().next().unwrap();
     let myself = my_primary.worker(worker_id);
     let public_key = my_primary.public_key();
-    let client = NetworkClient::new(my_primary.network_keypair().copy());
+    let client = NetworkClient::new_from_keypair(&my_primary.network_keypair());
 
     let parameters = Parameters {
         batch_size: 200, // Two transactions.
@@ -149,7 +148,7 @@ async fn handle_remote_clients_transactions() {
     let my_primary = fixture.authorities().next().unwrap();
     let myself = my_primary.worker(worker_id);
     let authority_public_key = my_primary.public_key();
-    let client = NetworkClient::new(my_primary.network_keypair().copy());
+    let client = NetworkClient::new_from_keypair(&my_primary.network_keypair());
 
     let parameters = Parameters {
         batch_size: 200, // Two transactions.
@@ -180,7 +179,7 @@ async fn handle_remote_clients_transactions() {
         worker_cache.clone(),
         parameters,
         TrivialTransactionValidator::default(),
-        client,
+        client.clone(),
         batch_store,
         metrics,
         &mut tx_shutdown,
@@ -207,9 +206,7 @@ async fn handle_remote_clients_transactions() {
             tx_await_batch.try_send(()).unwrap();
             Ok(anemo::Response::new(()))
         });
-    let primary_routes =
-        anemo::Router::new().add_rpc_service(WorkerToPrimaryServer::new(mock_primary_server));
-    peer_networks.push(my_primary.new_network(primary_routes));
+    client.set_worker_to_primary_local_handler(Arc::new(mock_primary_server));
 
     // Spawn enough workers' listeners to acknowledge our batches.
     for worker in fixture.authorities().skip(1).map(|a| a.worker(worker_id)) {
@@ -269,7 +266,7 @@ async fn handle_local_clients_transactions() {
     let my_primary = fixture.authorities().next().unwrap();
     let myself = my_primary.worker(worker_id);
     let authority_public_key = my_primary.public_key();
-    let client = NetworkClient::new(my_primary.network_keypair().copy());
+    let client = NetworkClient::new_from_keypair(&my_primary.network_keypair());
 
     let parameters = Parameters {
         batch_size: 200, // Two transactions.
@@ -300,7 +297,7 @@ async fn handle_local_clients_transactions() {
         worker_cache.clone(),
         parameters,
         TrivialTransactionValidator::default(),
-        client,
+        client.clone(),
         batch_store,
         metrics,
         &mut tx_shutdown,
@@ -326,9 +323,7 @@ async fn handle_local_clients_transactions() {
             tx_await_batch.try_send(()).unwrap();
             Ok(anemo::Response::new(()))
         });
-    let primary_routes =
-        anemo::Router::new().add_rpc_service(WorkerToPrimaryServer::new(mock_primary_server));
-    peer_networks.push(my_primary.new_network(primary_routes));
+    client.set_worker_to_primary_local_handler(Arc::new(mock_primary_server));
 
     // Spawn enough workers' listeners to acknowledge our batches.
     for worker in fixture.authorities().skip(1).map(|a| a.worker(worker_id)) {
@@ -383,7 +378,7 @@ async fn get_network_peers_from_admin_server() {
     let worker_cache = fixture.worker_cache();
     let authority_1 = fixture.authorities().next().unwrap();
     let signer_1 = authority_1.keypair().copy();
-    let client_1 = NetworkClient::new(authority_1.network_keypair().copy());
+    let client_1 = NetworkClient::new_from_keypair(&authority_1.network_keypair());
 
     let worker_id = 0;
     let worker_1_keypair = authority_1.worker(worker_id).keypair().copy();
@@ -506,7 +501,7 @@ async fn get_network_peers_from_admin_server() {
 
     let authority_2 = fixture.authorities().nth(1).unwrap();
     let signer_2 = authority_2.keypair().copy();
-    let client_2 = NetworkClient::new(authority_2.network_keypair().copy());
+    let client_2 = NetworkClient::new_from_keypair(&authority_2.network_keypair());
 
     let worker_2_keypair = authority_2.worker(worker_id).keypair().copy();
 

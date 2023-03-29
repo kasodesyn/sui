@@ -280,7 +280,7 @@ async fn run(
 
     let store = NodeStorage::reopen(store_path, Some(certificate_store_cache_metrics));
 
-    let client = NetworkClient::new(primary_network_keypair.copy());
+    let client = NetworkClient::new_from_keypair(&primary_network_keypair);
 
     // The channel returning the result for each transaction's execution.
     let (_tx_transaction_confirmation, _rx_transaction_confirmation) = channel(100);

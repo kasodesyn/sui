@@ -28,7 +28,7 @@ async fn propose_header() {
     let committee = fixture.committee();
     let worker_cache = fixture.worker_cache();
     let primary = fixture.authorities().last().unwrap();
-    let client = NetworkClient::new(primary.network_keypair().copy());
+    let client = NetworkClient::new_from_keypair(&primary.network_keypair());
     let network_key = primary.network_keypair().copy().private().0.to_bytes();
     let id = primary.id();
     let signature_service = SignatureService::new(primary.keypair().copy());
@@ -145,7 +145,7 @@ async fn propose_header_failure() {
     let committee = fixture.committee();
     let worker_cache = fixture.worker_cache();
     let primary = fixture.authorities().last().unwrap();
-    let client = NetworkClient::new(primary.network_keypair().copy());
+    let client = NetworkClient::new_from_keypair(&primary.network_keypair());
     let network_key = primary.network_keypair().copy().private().0.to_bytes();
     let authority_id = primary.id();
     let signature_service = SignatureService::new(primary.keypair().copy());
@@ -266,7 +266,7 @@ async fn run_vote_aggregator_with_param(
     let committee = fixture.committee();
     let worker_cache = fixture.worker_cache();
     let primary = fixture.authorities().last().unwrap();
-    let client = NetworkClient::new(primary.network_keypair().copy());
+    let client = NetworkClient::new_from_keypair(&primary.network_keypair());
     let network_key = primary.network_keypair().copy().private().0.to_bytes();
     let id: AuthorityIdentifier = primary.id();
     let signature_service = SignatureService::new(primary.keypair().copy());
@@ -385,7 +385,7 @@ async fn shutdown_core() {
     let committee = fixture.committee();
     let worker_cache = fixture.worker_cache();
     let primary = fixture.authorities().next().unwrap();
-    let client = NetworkClient::new(primary.network_keypair().copy());
+    let client = NetworkClient::new_from_keypair(&primary.network_keypair());
     let network_key = primary.network_keypair().copy().private().0.to_bytes();
     let id: AuthorityIdentifier = primary.id();
     let signature_service = SignatureService::new(primary.keypair().copy());

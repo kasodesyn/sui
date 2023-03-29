@@ -35,7 +35,7 @@ async fn accept_certificates() {
     let network_key = primary.network_keypair().copy().private().0.to_bytes();
     let authority_id = primary.id();
     let metrics = Arc::new(PrimaryMetrics::new(&Registry::new()));
-    let client = NetworkClient::new(primary.network_keypair().copy());
+    let client = NetworkClient::new_from_keypair(&primary.network_keypair());
 
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
     let (tx_new_certificates, mut rx_new_certificates) = test_utils::test_channel!(3);
@@ -135,7 +135,7 @@ async fn accept_suspended_certificates() {
     let metrics = Arc::new(PrimaryMetrics::new(&Registry::new()));
     let primary = fixture.authorities().next().unwrap();
     let authority_id = primary.id();
-    let client = NetworkClient::new(primary.network_keypair().copy());
+    let client = NetworkClient::new_from_keypair(&primary.network_keypair());
 
     let (_header_store, certificate_store, payload_store) = create_db_stores();
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(100);
@@ -230,7 +230,7 @@ async fn synchronizer_recover_basic() {
     let committee = fixture.committee();
     let worker_cache = fixture.worker_cache();
     let primary = fixture.authorities().last().unwrap();
-    let client = NetworkClient::new(primary.network_keypair().copy());
+    let client = NetworkClient::new_from_keypair(&primary.network_keypair());
     let network_key = primary.network_keypair().copy().private().0.to_bytes();
     let name = primary.id();
     let metrics = Arc::new(PrimaryMetrics::new(&Registry::new()));
@@ -349,7 +349,7 @@ async fn synchronizer_recover_partial_certs() {
     let committee = fixture.committee();
     let worker_cache = fixture.worker_cache();
     let primary = fixture.authorities().last().unwrap();
-    let client = NetworkClient::new(primary.network_keypair().copy());
+    let client = NetworkClient::new_from_keypair(&primary.network_keypair());
     let network_key = primary.network_keypair().copy().private().0.to_bytes();
     let name = primary.id();
     let metrics = Arc::new(PrimaryMetrics::new(&Registry::new()));
@@ -462,7 +462,7 @@ async fn synchronizer_recover_previous_round() {
     let committee = fixture.committee();
     let worker_cache = fixture.worker_cache();
     let primary = fixture.authorities().last().unwrap();
-    let client = NetworkClient::new(primary.network_keypair().copy());
+    let client = NetworkClient::new_from_keypair(&primary.network_keypair());
     let network_key = primary.network_keypair().copy().private().0.to_bytes();
     let name = primary.id();
     let metrics = Arc::new(PrimaryMetrics::new(&Registry::new()));
@@ -577,7 +577,7 @@ async fn synchronizer_recover_previous_round() {
 async fn deliver_certificate_using_dag() {
     let fixture = CommitteeFixture::builder().build();
     let primary = fixture.authorities().next().unwrap();
-    let client = NetworkClient::new(primary.network_keypair().copy());
+    let client = NetworkClient::new_from_keypair(&primary.network_keypair());
     let name = primary.id();
     let committee = fixture.committee();
     let worker_cache = fixture.worker_cache();
@@ -657,7 +657,7 @@ async fn deliver_certificate_using_dag() {
 async fn deliver_certificate_using_store() {
     let fixture = CommitteeFixture::builder().build();
     let primary = fixture.authorities().next().unwrap();
-    let client = NetworkClient::new(primary.network_keypair().copy());
+    let client = NetworkClient::new_from_keypair(&primary.network_keypair());
     let name = primary.id();
     let committee = fixture.committee();
     let worker_cache = fixture.worker_cache();
@@ -724,7 +724,7 @@ async fn deliver_certificate_using_store() {
 async fn deliver_certificate_not_found_parents() {
     let fixture = CommitteeFixture::builder().build();
     let primary = fixture.authorities().next().unwrap();
-    let client = NetworkClient::new(primary.network_keypair().copy());
+    let client = NetworkClient::new_from_keypair(&primary.network_keypair());
     let name = primary.id();
     let committee = fixture.committee();
     let worker_cache = fixture.worker_cache();
@@ -799,7 +799,7 @@ async fn sync_batches_drops_old() {
     let metrics = Arc::new(PrimaryMetrics::new(&Registry::new()));
     let primary = fixture.authorities().next().unwrap();
     let author = fixture.authorities().nth(2).unwrap();
-    let client = NetworkClient::new(primary.network_keypair().copy());
+    let client = NetworkClient::new_from_keypair(&primary.network_keypair());
 
     let (_header_store, certificate_store, payload_store) = create_db_stores();
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(1);
@@ -878,7 +878,7 @@ async fn gc_suspended_certificates() {
     let worker_cache = fixture.worker_cache();
     let metrics = Arc::new(PrimaryMetrics::new(&Registry::new()));
     let primary = fixture.authorities().next().unwrap();
-    let client = NetworkClient::new(primary.network_keypair().copy());
+    let client = NetworkClient::new_from_keypair(&primary.network_keypair());
 
     let (_header_store, certificate_store, payload_store) = create_db_stores();
     let (tx_certificate_fetcher, _rx_certificate_fetcher) = test_utils::test_channel!(100);

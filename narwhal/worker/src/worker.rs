@@ -35,9 +35,8 @@ use tokio::task::JoinHandle;
 use tower::ServiceBuilder;
 use tracing::{error, info};
 use types::{
-    metered_channel::{channel_with_total, Sender},
-    Batch, BatchDigest, ConditionalBroadcastReceiver, PreSubscribedBroadcastSender,
-    PrimaryToWorkerServer, WorkerOurBatchMessage, WorkerToWorkerServer,
+    metered_channel::channel_with_total, Batch, BatchDigest, ConditionalBroadcastReceiver,
+    PreSubscribedBroadcastSender, PrimaryToWorkerServer, WorkerToWorkerServer,
 };
 
 #[cfg(test)]
@@ -103,7 +102,7 @@ impl Worker {
         let network_connection_metrics = metrics.network_connection_metrics.unwrap();
 
         // Spawn all worker tasks.
-        let (tx_our_batch, rx_our_batch) = channel_with_total(
+        let (_tx_our_batch, rx_our_batch) = channel_with_total(
             CHANNEL_CAPACITY,
             &channel_metrics.tx_our_batch,
             &channel_metrics.tx_our_batch_total,
@@ -376,11 +375,11 @@ impl Worker {
                 shutdown_receivers.pop().unwrap(),
                 shutdown_receivers.pop().unwrap(),
             ],
-            tx_our_batch,
             node_metrics,
             channel_metrics,
             endpoint_metrics,
             validator,
+            client,
             network.clone(),
         );
 
@@ -451,14 +450,11 @@ impl Worker {
     fn handle_clients_transactions(
         &self,
         mut shutdown_receivers: Vec<ConditionalBroadcastReceiver>,
-        tx_our_batch: Sender<(
-            WorkerOurBatchMessage,
-            Option<tokio::sync::oneshot::Sender<()>>,
-        )>,
         node_metrics: Arc<WorkerMetrics>,
         channel_metrics: Arc<WorkerChannelMetrics>,
         endpoint_metrics: WorkerEndpointMetrics,
         validator: impl TransactionValidator,
+        client: NetworkClient,
         network: anemo::Network,
     ) -> Vec<JoinHandle<()>> {
         let (tx_batch_maker, rx_batch_maker) = channel_with_total(
@@ -501,8 +497,8 @@ impl Worker {
             rx_batch_maker,
             tx_quorum_waiter,
             node_metrics,
+            client,
             self.store.clone(),
-            tx_our_batch,
         );
 
         // The `QuorumWaiter` waits for 2f authorities to acknowledge reception of the batch. It then forwards

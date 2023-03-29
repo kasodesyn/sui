@@ -143,7 +143,7 @@ impl NarwhalManager {
         let store = NodeStorage::reopen(store_path, Some(self.store_cache_metrics.clone()));
 
         // Create a new client.
-        let network_client = NetworkClient::new(self.network_keypair.copy());
+        let network_client = NetworkClient::new_from_keypair(&self.network_keypair);
 
         let name = self.primary_keypair.public().clone();
 

@@ -8,7 +8,8 @@ use tokio::task::JoinHandle;
 use types::{
     error::LocalClientError, Batch, BatchDigest, FetchCertificatesRequest,
     FetchCertificatesResponse, GetCertificatesRequest, GetCertificatesResponse,
-    RequestBatchesRequest, RequestBatchesResponse, WorkerSynchronizeMessage,
+    RequestBatchesRequest, RequestBatchesResponse, WorkerOthersBatchMessage, WorkerOurBatchMessage,
+    WorkerSynchronizeMessage,
 };
 
 pub trait UnreliableNetwork<Request: Clone + Send + Sync> {
@@ -85,6 +86,19 @@ pub trait PrimaryToOwnWorkerClient {
         &self,
         worker_peer: NetworkPublicKey,
         request: WorkerSynchronizeMessage,
+    ) -> Result<(), LocalClientError>;
+}
+
+#[async_trait]
+pub trait WorkerToOwnPrimaryClient {
+    async fn report_our_batch(
+        &self,
+        request: WorkerOurBatchMessage,
+    ) -> Result<(), LocalClientError>;
+
+    async fn report_others_batch(
+        &self,
+        request: WorkerOthersBatchMessage,
     ) -> Result<(), LocalClientError>;
 }
 

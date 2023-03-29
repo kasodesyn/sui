@@ -35,7 +35,7 @@ async fn simple_primary_worker_node_start_stop() {
     let authority = fixture.authorities().next().unwrap();
     let key_pair = authority.keypair();
     let network_key_pair = authority.network_keypair();
-    let client = NetworkClient::new(network_key_pair.copy());
+    let client = NetworkClient::new_from_keypair(&network_key_pair);
 
     let store = NodeStorage::reopen(temp_dir(), None);
 
@@ -117,7 +117,7 @@ async fn primary_node_restart() {
     let authority = fixture.authorities().next().unwrap();
     let key_pair = authority.keypair();
     let network_key_pair = authority.network_keypair();
-    let client = NetworkClient::new(network_key_pair.copy());
+    let client = NetworkClient::new_from_keypair(&network_key_pair);
 
     let store = NodeStorage::reopen(temp_dir(), None);
 
