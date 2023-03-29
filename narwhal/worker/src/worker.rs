@@ -107,7 +107,7 @@ impl Worker {
             &channel_metrics.tx_our_batch,
             &channel_metrics.tx_our_batch_total,
         );
-        let (tx_others_batch, rx_others_batch) = channel_with_total(
+        let (_tx_others_batch, rx_others_batch) = channel_with_total(
             CHANNEL_CAPACITY,
             &channel_metrics.tx_others_batch,
             &channel_metrics.tx_others_batch_total,
@@ -132,7 +132,7 @@ impl Worker {
             worker_peer_id,
             Arc::new(WorkerReceiverHandler {
                 id: worker.id,
-                tx_others_batch: tx_others_batch.clone(),
+                client: client.clone(),
                 store: worker.store.clone(),
                 validator: validator.clone(),
             }),
@@ -140,7 +140,7 @@ impl Worker {
 
         let mut worker_service = WorkerToWorkerServer::new(WorkerReceiverHandler {
             id: worker.id,
-            tx_others_batch,
+            client: client.clone(),
             store: worker.store.clone(),
             validator: validator.clone(),
         });
