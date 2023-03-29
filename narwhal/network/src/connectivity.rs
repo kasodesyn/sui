@@ -2,12 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::metrics::NetworkConnectionMetrics;
+use anemo::types::PeerEvent;
 use anemo::PeerId;
 use dashmap::DashMap;
 use mysten_metrics::spawn_logged_monitored_task;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::task::JoinHandle;
+use tokio::time;
 
 #[derive(Eq, PartialEq, Clone, Debug)]
 pub enum ConnectionStatus {
@@ -47,13 +50,17 @@ impl ConnectionMonitor {
     }
 
     async fn run(self) {
-        let (mut subscriber, connected_peers) = {
+        let mut connected_peers: HashSet<PeerId> = HashSet::new();
+        let mut subscriber = {
             if let Some(network) = self.network.upgrade() {
-                let Ok((subscriber, connected_peers)) = network.subscribe() else {
+                let Ok((subscriber, active_peers)) = network.subscribe() else {
                     return;
                 };
 
-                (subscriber, connected_peers)
+                active_peers.iter().for_each(|peer_id| {
+                    connected_peers.insert(*peer_id);
+                });
+                subscriber
             } else {
                 return;
             }
@@ -69,20 +76,144 @@ impl ConnectionMonitor {
         }
 
         // now report the connected peers
-        for peer_id in connected_peers {
-            self.handle_peer_status_change(peer_id, ConnectionStatus::Connected)
+        for peer_id in connected_peers.iter() {
+            self.handle_peer_status_change(*peer_id, ConnectionStatus::Connected)
                 .await;
         }
 
-        while let Ok(event) = subscriber.recv().await {
-            match event {
-                anemo::types::PeerEvent::NewPeer(peer_id) => {
-                    self.handle_peer_status_change(peer_id, ConnectionStatus::Connected)
-                        .await;
+        let mut connection_stat_collection_interval = time::interval(Duration::from_secs(5));
+
+        loop {
+            tokio::select! {
+                _ = connection_stat_collection_interval.tick() => {
+                    if let Some(network) = self.network.upgrade() {
+                        for peer_id in connected_peers.iter() {
+                            if let Some(connection) = network.peer(*peer_id) {
+                                let stats = connection.connection_stats();
+                                // Update PathStats
+                                self.connection_metrics
+                                    .network_peer_rtt
+                                    .with_label_values(&[&format!("{peer_id}")])
+                                    .observe(stats.path.rtt.as_millis() as f64);
+                                self.connection_metrics
+                                    .network_peer_lost_packets
+                                    .with_label_values(&[&format!("{peer_id}")])
+                                    .set(stats.path.lost_packets as i64);
+                                self.connection_metrics
+                                    .network_peer_lost_bytes
+                                    .with_label_values(&[&format!("{peer_id}")])
+                                    .set(stats.path.lost_bytes as i64);
+                                self.connection_metrics
+                                    .network_peer_sent_packets
+                                    .with_label_values(&[&format!("{peer_id}")])
+                                    .set(stats.path.sent_packets as i64);
+                                self.connection_metrics
+                                    .network_peer_congestion_events
+                                    .with_label_values(&[&format!("{peer_id}")])
+                                    .set(stats.path.congestion_events as i64);
+                                self.connection_metrics
+                                    .network_peer_congestion_window
+                                    .with_label_values(&[&format!("{peer_id}")])
+                                    .observe(stats.path.cwnd as f64);
+
+                                // Update FrameStats
+                                self.connection_metrics
+                                    .network_peer_max_data
+                                    .with_label_values(&[&format!("{peer_id}"), "transmitted"])
+                                    .observe(stats.frame_tx.max_data as f64);
+                                self.connection_metrics
+                                    .network_peer_max_data
+                                    .with_label_values(&[&format!("{peer_id}"), "received"])
+                                    .observe(stats.frame_rx.max_data as f64);
+                                self.connection_metrics
+                                    .network_peer_closed_connections
+                                    .with_label_values(&[
+                                        &format!("{peer_id}"),
+                                        "transmitted",
+                                    ])
+                                    .set(stats.frame_tx.connection_close as i64);
+                                self.connection_metrics
+                                    .network_peer_closed_connections
+                                    .with_label_values(&[
+                                        &format!("{peer_id}"),
+                                        "received",
+                                    ])
+                                    .set(stats.frame_rx.connection_close as i64);
+                                self.connection_metrics
+                                    .network_peer_data_blocked
+                                    .with_label_values(&[
+                                        &format!("{peer_id}"),
+                                        "transmitted",
+                                    ])
+                                    .set(stats.frame_tx.data_blocked as i64);
+                                self.connection_metrics
+                                    .network_peer_data_blocked
+                                    .with_label_values(&[
+                                        &format!("{peer_id}"),
+                                        "received",
+                                    ])
+                                    .set(stats.frame_rx.data_blocked as i64);
+
+                                // Update UDPStats
+                                self.connection_metrics
+                                    .network_peer_udp_datagrams
+                                    .with_label_values(&[
+                                        &format!("{peer_id}"),
+                                        "transmitted",
+                                    ])
+                                    .set(stats.udp_tx.datagrams as i64);
+                                self.connection_metrics
+                                    .network_peer_udp_datagrams
+                                    .with_label_values(&[
+                                        &format!("{peer_id}"),
+                                        "received",
+                                    ])
+                                    .set(stats.udp_rx.datagrams as i64);
+                                self.connection_metrics
+                                    .network_peer_udp_bytes
+                                    .with_label_values(&[
+                                        &format!("{peer_id}"),
+                                        "transmitted",
+                                    ])
+                                    .set(stats.udp_tx.bytes as i64);
+                                self.connection_metrics
+                                    .network_peer_udp_bytes
+                                    .with_label_values(&[
+                                        &format!("{peer_id}"),
+                                        "received",
+                                    ])
+                                    .set(stats.udp_rx.bytes as i64);
+                                self.connection_metrics
+                                    .network_peer_udp_transmits
+                                    .with_label_values(&[
+                                        &format!("{peer_id}"),
+                                        "transmitted",
+                                    ])
+                                    .set(stats.udp_tx.transmits as i64);
+                                self.connection_metrics
+                                    .network_peer_udp_transmits
+                                    .with_label_values(&[
+                                        &format!("{peer_id}"),
+                                        "received",
+                                    ])
+                                    .set(stats.udp_rx.transmits as i64);
+                            }
+                        }
+                    } else {
+                        continue;
+                    }
                 }
-                anemo::types::PeerEvent::LostPeer(peer_id, _) => {
-                    self.handle_peer_status_change(peer_id, ConnectionStatus::Disconnected)
-                        .await;
+                Ok(event) = subscriber.recv() => {
+                    match event {
+                        PeerEvent::NewPeer(peer_id) => {
+                            self.handle_peer_status_change(peer_id, ConnectionStatus::Connected).await;
+                            connected_peers.insert(peer_id);
+                        }
+                        PeerEvent::LostPeer(peer_id, _) => {
+                            self.handle_peer_status_change(peer_id, ConnectionStatus::Disconnected).await;
+                            connected_peers.remove(&peer_id);
+                        }
+                    }
                 }
             }
         }
