@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 use crate::config::{PeerValidationConfig, RemoteWriteConfig};
 use crate::handlers::publish_metrics;
+use crate::histogram_relay::HistogramRelay;
 use crate::middleware::{expect_mysten_proxy_header, expect_valid_public_key};
 use crate::peers::SuiNodeProvider;
 use anyhow::Result;
@@ -84,7 +85,12 @@ pub fn make_reqwest_client(settings: RemoteWriteConfig) -> ReqwestClient {
 }
 
 /// App will configure our routes. This fn is also used to instrument our tests
-pub fn app(network: String, client: ReqwestClient, allower: Option<SuiNodeProvider>) -> Router {
+pub fn app(
+    network: String,
+    client: ReqwestClient,
+    relay: HistogramRelay,
+    allower: Option<SuiNodeProvider>,
+) -> Router {
     // build our application with a route and our sender mpsc
     let mut router = Router::new()
         .route("/publish/metrics", axum_post(publish_metrics))
@@ -96,6 +102,7 @@ pub fn app(network: String, client: ReqwestClient, allower: Option<SuiNodeProvid
             .layer(Extension(Arc::new(allower)));
     }
     router
+        .layer(Extension(relay))
         .layer(Extension(network))
         .layer(Extension(client))
         .layer(

@@ -10,7 +10,7 @@ use sui_proxy::{
         make_reqwest_client, server,
     },
     config::load,
-    metrics,
+    histogram_relay, metrics,
 };
 use sui_tls::TlsAcceptor;
 use telemetry_subscribers::TelemetryConfig;
@@ -58,7 +58,8 @@ async fn main() -> Result<()> {
         };
     let acceptor = TlsAcceptor::new(tls_config);
     let client = make_reqwest_client(config.remote_write);
-    let app = app(config.network, client, allower);
+    let histogram_relay = histogram_relay::start_prometheus_server(config.histogram_address);
+    let app = app(config.network, client, histogram_relay, allower);
 
     let registry_service = metrics::start_prometheus_server(config.metrics_address);
     let prometheus_registry = registry_service.default_registry();
