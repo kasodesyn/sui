@@ -435,10 +435,15 @@ module sui_system::sui_system_state_inner {
         self: &mut SuiSystemStateInnerV2,
         ctx: &mut TxContext,
     ) {
-        assert!(
-            validator_set::next_epoch_validator_count(&self.validators) > self.parameters.min_validator_count,
-            ELimitExceeded,
-        );
+        // Only check min validator condition if the current number of validators satisfy the constraint.
+        // This is so that if we somehow already are in a state where we have less than min validators, it no longer matters
+        // and is ok to stay so. This is useful for a test setup.
+        if (vector::length(validator_set::active_validators(&self.validators)) >= self.parameters.min_validator_count) {
+            assert!(
+                validator_set::next_epoch_validator_count(&self.validators) > self.parameters.min_validator_count,
+                ELimitExceeded,
+            );
+        };
 
         validator_set::request_remove_validator(
             &mut self.validators,

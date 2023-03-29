@@ -1067,10 +1067,15 @@ of the validator.
     self: &<b>mut</b> <a href="sui_system_state_inner.md#0x3_sui_system_state_inner_SuiSystemStateInnerV2">SuiSystemStateInnerV2</a>,
     ctx: &<b>mut</b> TxContext,
 ) {
-    <b>assert</b>!(
-        <a href="validator_set.md#0x3_validator_set_next_epoch_validator_count">validator_set::next_epoch_validator_count</a>(&self.validators) &gt; self.parameters.min_validator_count,
-        <a href="sui_system_state_inner.md#0x3_sui_system_state_inner_ELimitExceeded">ELimitExceeded</a>,
-    );
+    // Only check <b>min</b> <a href="validator.md#0x3_validator">validator</a> condition <b>if</b> the current number of validators satisfy the constraint.
+    // This is so that <b>if</b> we somehow already are in a state <b>where</b> we have less than <b>min</b> validators, it no longer matters
+    // and is ok <b>to</b> stay so. This is useful for a test setup.
+    <b>if</b> (<a href="_length">vector::length</a>(<a href="validator_set.md#0x3_validator_set_active_validators">validator_set::active_validators</a>(&self.validators)) &gt;= self.parameters.min_validator_count) {
+        <b>assert</b>!(
+            <a href="validator_set.md#0x3_validator_set_next_epoch_validator_count">validator_set::next_epoch_validator_count</a>(&self.validators) &gt; self.parameters.min_validator_count,
+            <a href="sui_system_state_inner.md#0x3_sui_system_state_inner_ELimitExceeded">ELimitExceeded</a>,
+        );
+    };
 
     <a href="validator_set.md#0x3_validator_set_request_remove_validator">validator_set::request_remove_validator</a>(
         &<b>mut</b> self.validators,
