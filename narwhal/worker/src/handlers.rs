@@ -15,10 +15,9 @@ use store::{rocks::DBMap, Map};
 use tokio::time::sleep;
 use tracing::{debug, info, trace, warn};
 use types::{
-    Batch, BatchDigest, PrimaryToWorker, RequestBatchRequest,
-    RequestBatchResponse, RequestBatchesRequest, RequestBatchesResponse, WorkerBatchMessage,
-    WorkerDeleteBatchesMessage, WorkerOthersBatchMessage, WorkerSynchronizeMessage, WorkerToWorker,
-    WorkerToWorkerClient,
+    Batch, BatchDigest, PrimaryToWorker, RequestBatchRequest, RequestBatchResponse,
+    RequestBatchesRequest, RequestBatchesResponse, WorkerBatchMessage, WorkerDeleteBatchesMessage,
+    WorkerOthersBatchMessage, WorkerSynchronizeMessage, WorkerToWorker, WorkerToWorkerClient,
 };
 
 use mysten_metrics::monitored_future;

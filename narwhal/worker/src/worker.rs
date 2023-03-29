@@ -5,7 +5,6 @@ use crate::{
     batch_maker::BatchMaker,
     handlers::{PrimaryReceiverHandler, WorkerReceiverHandler},
     metrics::WorkerChannelMetrics,
-    primary_connector::PrimaryConnector,
     quorum_waiter::QuorumWaiter,
     TransactionValidator, NUM_SHUTDOWN_RECEIVERS,
 };
@@ -100,18 +99,6 @@ impl Worker {
         let inbound_network_metrics = Arc::new(metrics.inbound_network_metrics.unwrap());
         let outbound_network_metrics = Arc::new(metrics.outbound_network_metrics.unwrap());
         let network_connection_metrics = metrics.network_connection_metrics.unwrap();
-
-        // Spawn all worker tasks.
-        let (_tx_our_batch, rx_our_batch) = channel_with_total(
-            CHANNEL_CAPACITY,
-            &channel_metrics.tx_our_batch,
-            &channel_metrics.tx_our_batch_total,
-        );
-        let (_tx_others_batch, rx_others_batch) = channel_with_total(
-            CHANNEL_CAPACITY,
-            &channel_metrics.tx_others_batch,
-            &channel_metrics.tx_others_batch_total,
-        );
 
         let mut shutdown_receivers = tx_shutdown.subscribe_n(NUM_SHUTDOWN_RECEIVERS);
 
@@ -362,13 +349,6 @@ impl Worker {
             shutdown_receivers.pop().unwrap(),
         );
 
-        let primary_connector_handle = PrimaryConnector::spawn(
-            authority.network_key(),
-            shutdown_receivers.pop().unwrap(),
-            rx_our_batch,
-            rx_others_batch,
-            network.clone(),
-        );
         let client_flow_handles = worker.handle_clients_transactions(
             vec![
                 shutdown_receivers.pop().unwrap(),
@@ -397,11 +377,7 @@ impl Worker {
                 .transactions
         );
 
-        let mut handles = vec![
-            primary_connector_handle,
-            connection_monitor_handle,
-            network_shutdown_handle,
-        ];
+        let mut handles = vec![connection_monitor_handle, network_shutdown_handle];
         handles.extend(admin_handles);
         handles.extend(client_flow_handles);
         handles
