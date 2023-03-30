@@ -58,16 +58,15 @@ export function useGetRollingAverageApys(numberOfValidators: number | null) {
         order: 'descending',
     });
 
+    console.log(validatorEpochEvents.data);
+
     const apyByValidator =
         useMemo<ApyByValidator | null>(() => {
-            if (
-                !validatorEpochEvents?.data ||
-                !validatorEpochEvents?.data?.data
-            ) {
+            if (!validatorEpochEvents?.data) {
                 return null;
             }
             const apyGroups: ApyGroups = {};
-            validatorEpochEvents.data.data.forEach(({ parsedJson }) => {
+            validatorEpochEvents.data.forEach(({ parsedJson }) => {
                 const { stake, pool_staking_reward, validator_address } =
                     parsedJson as ParsedJson;
 
@@ -75,6 +74,7 @@ export function useGetRollingAverageApys(numberOfValidators: number | null) {
                     apyGroups[validator_address] = [];
                 }
                 const apyFloat = calculateApy(stake, pool_staking_reward);
+                console.log('float', apyFloat);
 
                 // If the APY is greater than 10000% or isNAN, set it to 0
                 apyGroups[validator_address].push(
@@ -98,6 +98,8 @@ export function useGetRollingAverageApys(numberOfValidators: number | null) {
             // { '0x123': 0.1234, '0x456': 0.4567 }
             return apyByValidator;
         }, [validatorEpochEvents.data]) || null;
+
+    console.log(apyByValidator);
 
     return {
         ...validatorEpochEvents,
