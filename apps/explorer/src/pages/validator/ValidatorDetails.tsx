@@ -27,11 +27,9 @@ function ValidatorDetails() {
 
     const { data: validatorEvents, isLoading: validatorsEventsLoading } =
         useGetValidatorsEvents({
-            limit: 1000,
+            limit: numberOfValidators,
             order: 'descending',
         });
-
-    console.log('DATA', validatorEvents);
 
     const validatorRewards = useMemo(() => {
         if (!validatorEvents || !id) return 0;
