@@ -286,7 +286,7 @@ impl BatchMaker {
             //       it since it is now stored. So ignore the error for the moment.
             let _ = done_sending.await;
 
-            // Finally send to primary
+            // Send the batch to the primary.
             let message = WorkerOurBatchMessage {
                 digest,
                 worker_id,

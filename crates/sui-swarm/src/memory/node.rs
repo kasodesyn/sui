@@ -4,10 +4,12 @@
 use anyhow::anyhow;
 use anyhow::Result;
 use std::sync::Mutex;
+use std::time::Duration;
 use sui_config::NodeConfig;
 use sui_node::SuiNodeHandle;
 use sui_types::base_types::AuthorityName;
 use tap::TapFallible;
+use tokio::time::sleep;
 use tracing::{error, info};
 
 use super::container::Container;
@@ -59,6 +61,10 @@ impl Node {
 
     /// Start this Node, waiting until its completely started up.
     pub async fn start(&self) -> Result<()> {
+        // Node::start() can fail because Sui rocksdb handles are still kept by the previous
+        // instance of the container before Node has stopped. This can be related to the fact that
+        // no proper shutdown is implemented for Sui components that do not restart per-epoch.
+        sleep(Duration::from_millis(100)).await;
         self.spawn().await
     }
 

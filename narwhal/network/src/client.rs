@@ -81,9 +81,12 @@ impl NetworkClient {
 
     pub fn shutdown(&self) {
         let mut inner = self.inner.write();
+        if inner.shutdown {
+            return;
+        }
         // Clears internal data and sets shutdown flag.
         *inner = Inner {
-            primary_peer_id: empty_peer_id(),
+            primary_peer_id: inner.primary_peer_id,
             worker_to_primary_handler: None,
             primary_to_own_worker_handler: BTreeMap::new(),
             worker_to_own_worker_handler: BTreeMap::new(),
